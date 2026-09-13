@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -72,12 +74,17 @@ func Test_MatchHappyPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if res, err := match(test.line, program); err != nil {
+			backtrace := make([]string, 0, len(program))
+			if res, err := match(test.line, program, &backtrace); err != nil {
 				printProgram(program)
+				fmt.Printf("Backtrace %q:\n%s\n",
+					test.query, strings.Join(backtrace, "\n"))
 				t.Errorf("error matching query %q against %q: %v",
 					test.query, test.line, err)
 			} else {
 				if test.expected != res {
+					fmt.Printf("Backtrace %q:\n%s\n",
+						test.query, strings.Join(backtrace, "\n"))
 					t.Errorf("match query %q against %q: want %v, got %v",
 						test.query, test.line, test.expected, res)
 				}

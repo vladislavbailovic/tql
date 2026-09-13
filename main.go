@@ -50,8 +50,10 @@ func printProgram(program []Instruction) {
 	fmt.Printf("\n")
 }
 
-func match(subject string, program []Instruction) (bool, error) {
-	// fmt.Printf("Matching against %q\n", subject)
+func match(subject string, program []Instruction, backtrace *[]string) (bool, error) {
+	if backtrace != nil {
+		*backtrace = append(*backtrace, fmt.Sprintf("Matching against %q", subject))
+	}
 	stack := make([]bool, 0, len(program))
 
 	for i := 0; i < len(program); i++ {
@@ -62,7 +64,10 @@ func match(subject string, program []Instruction) (bool, error) {
 				value = true
 			}
 			stack = append(stack, value)
-			// fmt.Printf("\t- MATCH %q: %v\n", program[i].payload, value)
+			if backtrace != nil {
+				*backtrace = append(*backtrace,
+					fmt.Sprintf("\t- MATCH %q: %v", program[i].payload, value))
+			}
 		case KIND_AND:
 			if len(stack) < 2 {
 				return false, fmt.Errorf("%s:%d expects 2 values, got %d",
@@ -73,7 +78,10 @@ func match(subject string, program []Instruction) (bool, error) {
 			value := left && right
 			stack[len(stack)-2] = value
 			stack = stack[:len(stack)-1]
-			// fmt.Printf("\t- %v AND %v: %v\n", left, right, value)
+			if backtrace != nil {
+				*backtrace = append(*backtrace,
+					fmt.Sprintf("\t- %v AND %v: %v", left, right, value))
+			}
 		case KIND_OR:
 			if len(stack) < 2 {
 				return false, fmt.Errorf("%s:%d expects 2 values, got %d",
@@ -84,7 +92,10 @@ func match(subject string, program []Instruction) (bool, error) {
 			value := left || right
 			stack[len(stack)-2] = value
 			stack = stack[:len(stack)-1]
-			// fmt.Printf("\t- %v OR %v: %v\n", left, right, value)
+			if backtrace != nil {
+				*backtrace = append(*backtrace,
+					fmt.Sprintf("\t- %v OR %v: %v", left, right, value))
+			}
 		case KIND_NOT:
 			if len(stack) < 1 {
 				return false, fmt.Errorf("%s:%d expects 1 value, got %d",
@@ -92,7 +103,10 @@ func match(subject string, program []Instruction) (bool, error) {
 			}
 			last := stack[len(stack)-1]
 			stack[len(stack)-1] = !last
-			// fmt.Printf("\t- NOT %v: %v\n", last, !last)
+			if backtrace != nil {
+				*backtrace = append(*backtrace,
+					fmt.Sprintf("\t- NOT %v: %v", last, !last))
+			}
 		case KIND_INVALID:
 			return false, fmt.Errorf("invalid instruction at %d", i)
 		default:
@@ -103,6 +117,10 @@ func match(subject string, program []Instruction) (bool, error) {
 
 	if len(stack) != 1 {
 		return false, fmt.Errorf("ambiguous result, got %d values", len(stack))
+	}
+	if backtrace != nil {
+		*backtrace = append(*backtrace,
+			fmt.Sprintf("result = %v", stack[0]))
 	}
 
 	return stack[0], nil
@@ -216,7 +234,7 @@ func main() {
 		os.Exit(1)
 	}
 	printProgram(program)
-	if match, err := match(":bookmark:aws:", program); err != nil {
+	if match, err := match(":bookmark:aws:", program, nil); err != nil {
 		printProgram(program)
 		fmt.Fprintln(os.Stderr, err)
 	} else {
