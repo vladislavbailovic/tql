@@ -150,7 +150,7 @@ func parseBinaryExpression(query []string, cursor *int, program *[]Instruction) 
 		return fmt.Errorf("invalid binary expression: %s", currentWord)
 	}
 
-	if err := parseExoression(query, cursor, program); err != nil {
+	if err := parseExpression(query, cursor, program); err != nil {
 		return err
 	}
 	*program = append(*program, Instruction{
@@ -173,7 +173,7 @@ func parseUnaryExpression(query []string, cursor *int, program *[]Instruction) e
 				negation, currentWord)
 		}
 		*cursor += 1
-		if err := parseExoression(query, cursor, program); err != nil {
+		if err := parseExpression(query, cursor, program); err != nil {
 			return err
 		}
 		*program = append(*program, Instruction{
@@ -186,7 +186,7 @@ func parseUnaryExpression(query []string, cursor *int, program *[]Instruction) e
 	return nil
 }
 
-func parseExoression(query []string, cursor *int, program *[]Instruction) error {
+func parseExpression(query []string, cursor *int, program *[]Instruction) error {
 	currentWord := query[*cursor]
 
 	switch currentWord {
@@ -215,7 +215,7 @@ func parseQuery(query []string) ([]Instruction, error) {
 	program := make([]Instruction, 0, len(query))
 	cursor := 0
 	for cursor < len(query) {
-		if err := parseExoression(query, &cursor, &program); err != nil {
+		if err := parseExpression(query, &cursor, &program); err != nil {
 			return program, err
 		}
 	}
