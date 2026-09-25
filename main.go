@@ -38,40 +38,69 @@ type Instruction struct {
 	payload string
 }
 
-func printProgram(program []Instruction) {
-	fmt.Printf("program:\n")
-	for i := 0; i < len(program); i++ {
-		fmt.Printf("\t- %s", program[i].kind)
-		if KIND_MATCH == program[i].kind {
-			fmt.Printf(" %q", program[i].payload)
+type Program []Subprogram
+
+func (x Program) String() string {
+	var sb strings.Builder
+	sb.WriteString("program:\n")
+	for i, subprogram := range x {
+		if i > 0 {
+			sb.WriteString("\n\tthen\n")
 		}
-		fmt.Printf("\n")
+		sb.WriteString(subprogram.String())
 	}
-	fmt.Printf("\n")
+	return sb.String()
 }
 
-func match(subject string, program []Instruction, backtrace *[]string) (bool, error) {
+type Subprogram []Instruction
+
+func (x Subprogram) String() string {
+	var sb strings.Builder
+	for i, instr := range x {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString(fmt.Sprintf("\t- %s", instr.kind))
+		if KIND_MATCH == x[i].kind {
+			sb.WriteString(fmt.Sprintf(" %q", instr.payload))
+		}
+	}
+	return sb.String()
+}
+
+func MatchesProgram(subject string, program Program, backtrace *[]string) (bool, error) {
+	for _, subprogram := range program {
+		if result, err := matchSubprogram(subject, subprogram, backtrace); err != nil {
+			return result, err
+		} else if result != true {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func matchSubprogram(subject string, subprogram Subprogram, backtrace *[]string) (bool, error) {
 	if backtrace != nil {
 		*backtrace = append(*backtrace, fmt.Sprintf("Matching against %q", subject))
 	}
-	stack := make([]bool, 0, len(program))
+	stack := make([]bool, 0, len(subprogram))
 
-	for i := 0; i < len(program); i++ {
-		switch program[i].kind {
+	for i := 0; i < len(subprogram); i++ {
+		switch subprogram[i].kind {
 		case KIND_MATCH:
 			value := false
-			if strings.Contains(subject, fmt.Sprintf(":%s:", program[i].payload)) {
+			if strings.Contains(subject, fmt.Sprintf(":%s:", subprogram[i].payload)) {
 				value = true
 			}
 			stack = append(stack, value)
 			if backtrace != nil {
 				*backtrace = append(*backtrace,
-					fmt.Sprintf("\t- MATCH %q: %v", program[i].payload, value))
+					fmt.Sprintf("\t- MATCH %q: %v", subprogram[i].payload, value))
 			}
 		case KIND_AND:
 			if len(stack) < 2 {
 				return false, fmt.Errorf("%s:%d expects 2 values, got %d",
-					program[i].kind, i, len(stack))
+					subprogram[i].kind, i, len(stack))
 			}
 			left := stack[len(stack)-2]
 			right := stack[len(stack)-1]
@@ -85,7 +114,7 @@ func match(subject string, program []Instruction, backtrace *[]string) (bool, er
 		case KIND_OR:
 			if len(stack) < 2 {
 				return false, fmt.Errorf("%s:%d expects 2 values, got %d",
-					program[i].kind, i, len(stack))
+					subprogram[i].kind, i, len(stack))
 			}
 			left := stack[len(stack)-2]
 			right := stack[len(stack)-1]
@@ -99,7 +128,7 @@ func match(subject string, program []Instruction, backtrace *[]string) (bool, er
 		case KIND_NOT:
 			if len(stack) < 1 {
 				return false, fmt.Errorf("%s:%d expects 1 value, got %d",
-					program[i].kind, i, len(stack))
+					subprogram[i].kind, i, len(stack))
 			}
 			last := stack[len(stack)-1]
 			stack[len(stack)-1] = !last
@@ -111,7 +140,7 @@ func match(subject string, program []Instruction, backtrace *[]string) (bool, er
 			return false, fmt.Errorf("invalid instruction at %d", i)
 		default:
 			return false, fmt.Errorf("match not implemented: %d at %d",
-				program[i].kind, i)
+				subprogram[i].kind, i)
 		}
 	}
 
@@ -126,16 +155,16 @@ func match(subject string, program []Instruction, backtrace *[]string) (bool, er
 	return stack[0], nil
 }
 
-func parseBinaryExpression(query []string, cursor *int, program *[]Instruction) error {
+func parseBinaryExpression(query []string, cursor *int, subprogram *Subprogram) error {
 	currentWord := query[*cursor]
 
-	if len(*program) < 1 {
+	if len(*subprogram) < 1 {
 		return fmt.Errorf("missing left parameter for binary expression: %s",
 			currentWord)
 	}
 	if len(query)-1 <= *cursor {
 		return fmt.Errorf("missing right parameter for binary expression: %q %s",
-			(*program)[len(*program)-1].payload, currentWord)
+			(*subprogram)[len(*subprogram)-1].payload, currentWord)
 	}
 
 	var currentInstructionKind InstructionKind
@@ -150,33 +179,33 @@ func parseBinaryExpression(query []string, cursor *int, program *[]Instruction) 
 		return fmt.Errorf("invalid binary expression: %s", currentWord)
 	}
 
-	if err := parseExpression(query, cursor, program); err != nil {
+	if err := parseExpression(query, cursor, subprogram); err != nil {
 		return err
 	}
-	*program = append(*program, Instruction{
+	*subprogram = append(*subprogram, Instruction{
 		kind: currentInstructionKind,
 	})
 	return nil
 }
 
-func parseUnaryExpression(query []string, cursor *int, program *[]Instruction) error {
+func parseUnaryExpression(query []string, cursor *int, subprogram *Subprogram) error {
 	currentWord := query[*cursor]
 
 	switch currentWord {
 	case "not":
 		if len(query)-1 <= *cursor {
 			negation := ""
-			if len(*program) > 0 {
-				negation = (*program)[len(*program)-1].payload
+			if len(*subprogram) > 0 {
+				negation = (*subprogram)[len(*subprogram)-1].payload
 			}
 			return fmt.Errorf("missing right parameter for negation: %q %s",
 				negation, currentWord)
 		}
 		*cursor += 1
-		if err := parseExpression(query, cursor, program); err != nil {
+		if err := parseExpression(query, cursor, subprogram); err != nil {
 			return err
 		}
-		*program = append(*program, Instruction{
+		*subprogram = append(*subprogram, Instruction{
 			kind: KIND_NOT,
 		})
 	default:
@@ -186,56 +215,65 @@ func parseUnaryExpression(query []string, cursor *int, program *[]Instruction) e
 	return nil
 }
 
-func parseExpression(query []string, cursor *int, program *[]Instruction) error {
+func parseExpression(query []string, cursor *int, subprogram *Subprogram) error {
 	currentWord := query[*cursor]
 
 	switch currentWord {
 	case "not":
-		if err := parseUnaryExpression(query, cursor, program); err != nil {
+		if err := parseUnaryExpression(query, cursor, subprogram); err != nil {
 			return err
 		}
 	case "and":
 		fallthrough
 	case "or":
-		if err := parseBinaryExpression(query, cursor, program); err != nil {
+		if err := parseBinaryExpression(query, cursor, subprogram); err != nil {
 			return err
 		}
 	default:
-		*program = append(*program, Instruction{
-			kind:    KIND_MATCH,
-			payload: currentWord,
-		})
+		if currentWord != "" {
+			*subprogram = append(*subprogram, Instruction{
+				kind:    KIND_MATCH,
+				payload: currentWord,
+			})
+		}
 		*cursor += 1
 	}
 
 	return nil
 }
 
-func parseQuery(query []string) ([]Instruction, error) {
-	program := make([]Instruction, 0, len(query))
+func parseSubprogram(query []string) (Subprogram, error) {
+	subprogram := make(Subprogram, 0, len(query))
 	cursor := 0
 	for cursor < len(query) {
-		if err := parseExpression(query, &cursor, &program); err != nil {
+		if err := parseExpression(query, &cursor, &subprogram); err != nil {
+			return subprogram, err
+		}
+	}
+	return subprogram, nil
+}
+
+func ParseProgramSource(programSource string) (Program, error) {
+	subqueries := strings.Split(programSource, "|")
+	program := make(Program, 0, len(subqueries))
+	for _, subquery := range subqueries {
+		subprogram, err := parseSubprogram(strings.Split(subquery, " "))
+		if err != nil {
 			return program, err
 		}
+		program = append(program, subprogram)
 	}
 	return program, nil
 }
 
-func parseQueryString(queryString string) ([]Instruction, error) {
-	query := strings.Split(queryString, " ")
-	return parseQuery(query)
-}
-
 func main() {
-	program, err := parseQuery(os.Args[1:])
+	program, err := ParseProgramSource(strings.Join(os.Args[1:], " "))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	printProgram(program)
-	if match, err := match(":bookmark:aws:", program, nil); err != nil {
-		printProgram(program)
+	fmt.Println(program)
+	if match, err := MatchesProgram(":bookmark:aws:", program, nil); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	} else {
 		fmt.Printf("result = %v\n", match)

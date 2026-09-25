@@ -22,14 +22,12 @@ func Test_ParseErrors(t *testing.T) {
 	}
 	for _, test := range suite {
 		t.Run(test.query, func(t *testing.T) {
-			program, err := parseQueryString(test.query)
+			program, err := ParseProgramSource(test.query)
 			if test.fail && err == nil {
-				printProgram(program)
-				t.Error("expected error, but didn't get one")
+				t.Errorf("expected error, but didn't get one:\n%s", program)
 			}
 			if !test.fail && err != nil {
-				printProgram(program)
-				t.Errorf("error parsing %q: %v", test.query, err)
+				t.Errorf("error parsing %q: %v\n%s", test.query, err, program)
 			}
 		})
 	}
@@ -69,22 +67,21 @@ func Test_MatchHappyPath(t *testing.T) {
 	}
 	for _, test := range suite {
 		t.Run(test.query, func(t *testing.T) {
-			program, err := parseQueryString(test.query)
+			program, err := ParseProgramSource(test.query)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			backtrace := make([]string, 0, len(program))
-			if res, err := match(test.line, program, &backtrace); err != nil {
-				printProgram(program)
-				fmt.Printf("Backtrace %q:\n%s\n",
-					test.query, strings.Join(backtrace, "\n"))
+			if res, err := MatchesProgram(test.line, program, &backtrace); err != nil {
+				fmt.Printf("%s\nBacktrace %q:\n%s\n",
+					program, test.query, strings.Join(backtrace, "\n"))
 				t.Errorf("error matching query %q against %q: %v",
 					test.query, test.line, err)
 			} else {
 				if test.expected != res {
-					fmt.Printf("Backtrace %q:\n%s\n",
-						test.query, strings.Join(backtrace, "\n"))
+					fmt.Printf("%s\nBacktrace %q:\n%s\n",
+						program, test.query, strings.Join(backtrace, "\n"))
 					t.Errorf("match query %q against %q: want %v, got %v",
 						test.query, test.line, test.expected, res)
 				}
