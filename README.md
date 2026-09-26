@@ -17,21 +17,21 @@ Query language for matching VimWiki-style tags.
 ### Building
 
 ```console
-$ go build .
+$ go generate && go build .
 ```
 
 
 ### Running
 
 ```console
-$ go run .
+$ go generate && go run .
 ```
 
 
 ### Testing
 
 ```console
-$ go test ./...
+$ go generate && go test ./...
 ```
 
 

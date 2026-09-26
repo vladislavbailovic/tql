@@ -19,4 +19,5 @@ func main() {
 	} else {
 		fmt.Printf("result = %v\n", match)
 	}
+	fmt.Println(_build_Info())
 }
