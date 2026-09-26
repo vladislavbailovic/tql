@@ -131,14 +131,14 @@ func parseExpression(query []string, cursor *int, subprogram *Subprogram) error 
 	currentWord := query[*cursor]
 
 	switch currentWord {
-	case "not":
-		if err := parseUnaryExpression(query, cursor, subprogram); err != nil {
-			return err
-		}
 	case "and":
 		fallthrough
 	case "or":
 		if err := parseBinaryExpression(query, cursor, subprogram); err != nil {
+			return err
+		}
+	case "not":
+		if err := parseUnaryExpression(query, cursor, subprogram); err != nil {
 			return err
 		}
 	default:
