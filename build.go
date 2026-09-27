@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-//go:generate sh -c "git describe HEAD --tags --always > build/version.txt"
+//go:generate go run internal/_buildinfo/main.go commit
 //go:embed build/version.txt
 var _build_CommitInfo string
 
-//go:generate sh -c "date > build/datetime.txt"
+//go:generate go run internal/_buildinfo/main.go date
 //go:embed build/datetime.txt
-var _build_Date string
+var _build_Datetime string
 
-//go:generate sh -c "go version > build/compiler.txt"
+//go:generate go run internal/_buildinfo/main.go compiler
 //go:embed build/compiler.txt
 var _build_Compiler string
 
@@ -22,7 +22,9 @@ func _build_Info() string {
 
 	sb.WriteString("version: ")
 	sb.WriteString(_build_CommitInfo)
-	sb.WriteString(_build_Date)
+	sb.WriteByte('\n')
+	sb.WriteString(_build_Datetime)
+	sb.WriteByte('\n')
 	sb.WriteString(_build_Compiler)
 
 	return sb.String()
